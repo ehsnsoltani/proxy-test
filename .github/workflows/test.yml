@@ -51,7 +51,7 @@ jobs:
           echo "========== PORT CHECK =========="
           ss -lntp | grep 9000 || true
 
-          echo "========== LOCAL PROXY TEST =========="
+          echo "========== LOCAL TEST =========="
           curl -x http://127.0.0.1:9000 http://example.com -v || true
 
 
@@ -71,7 +71,7 @@ jobs:
 
           wget "$URL" -O zrok.tar.gz
 
-          echo "========== TAR CONTENT =========="
+          echo "========== TAR =========="
           tar -tzf zrok.tar.gz
 
           tar -xzf zrok.tar.gz
@@ -83,13 +83,14 @@ jobs:
 
           sudo chmod +x /usr/local/bin/zrok
 
-          echo "========== ZROK =========="
           zrok version || true
 
 
       - name: Enable zrok
+        env:
+          ZROK_TOKEN: V0OUklFRSSiy
         run: |
-          zrok enable "V0OUklFRSSiy"
+          echo "$ZROK_TOKEN" | zrok enable -
 
 
       - name: Start zrok TCP tunnel
