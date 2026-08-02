@@ -1,10 +1,11 @@
-name: localhost-run TCP Proxy Test
+name: zrok TCP Tunnel Proxy Test
 
 on:
   workflow_dispatch:
 
 jobs:
   test:
+
     runs-on: ubuntu-latest
 
     steps:
@@ -17,14 +18,11 @@ jobs:
           echo
 
 
-      - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git build-essential curl wget openssh-client
-
-
       - name: Install 3proxy
         run: |
+          sudo apt update
+          sudo apt install -y git build-essential curl wget jq
+
           git clone https://github.com/z3APA3A/3proxy.git
 
           cd 3proxy
@@ -32,16 +30,18 @@ jobs:
 
           sudo cp bin/3proxy /usr/local/bin/3proxy
 
+          3proxy -v
+
 
       - name: Start 3proxy
         run: |
           printf '%s\n' \
-          'daemon' \
-          'nscache 65536' \
-          'nserver 8.8.8.8' \
-          'nserver 1.1.1.1' \
-          'auth none' \
-          'proxy -p9000' \
+          "daemon" \
+          "nscache 65536" \
+          "nserver 8.8.8.8" \
+          "nserver 1.1.1.1" \
+          "auth none" \
+          "proxy -p9000" \
           > 3proxy.cfg
 
 
@@ -51,11 +51,11 @@ jobs:
           sleep 5
 
 
-          echo "========== 3PROXY LOG =========="
+          echo "========== 3PROXY =========="
           cat 3proxy.log || true
 
 
-          echo "========== PORTS =========="
+          echo "========== PORT =========="
           ss -lntp | grep 9000 || true
 
 
@@ -63,45 +63,75 @@ jobs:
           curl -x http://127.0.0.1:9000 http://example.com -v || true
 
 
-      - name: Generate SSH key
+
+      - name: Install zrok
         run: |
-          mkdir -p ~/.ssh
-
-          ssh-keygen \
-          -t ed25519 \
-          -N "" \
-          -f ~/.ssh/id_ed25519
+          sudo apt update
+          sudo apt install -y jq curl wget
 
 
-          echo "========== PUBLIC KEY =========="
-          cat ~/.ssh/id_ed25519.pub
+          URL=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest \
+          | jq -r '.assets[].browser_download_url' \
+          | grep linux \
+          | grep amd64 \
+          | head -n1)
 
 
-      - name: Start localhost.run TCP tunnel
+          echo "Downloading:"
+          echo "$URL"
+
+
+          wget "$URL" -O zrok.tar.gz
+
+
+          tar -tzf zrok.tar.gz
+
+
+          tar -xzf zrok.tar.gz
+
+
+          ls -la
+
+
+          sudo install ./zrok2 /usr/local/bin/zrok
+
+
+          sudo chmod +x /usr/local/bin/zrok
+
+
+          echo "========== ZROK VERSION =========="
+          zrok version
+
+
+
+      - name: Enable zrok
         run: |
-          echo "Starting localhost.run..."
+          zrok enable "V0OUklFRSSiy"
 
 
-          nohup ssh \
-          -i ~/.ssh/id_ed25519 \
-          -o StrictHostKeyChecking=no \
-          -o ServerAliveInterval=60 \
-          -o ExitOnForwardFailure=yes \
-          -R 0:localhost:9000 \
-          localhost.run \
-          > localhostrun.log 2>&1 &
+
+      - name: Start zrok TCP tunnel
+        run: |
+          echo "Starting zrok TCP tunnel..."
+
+
+          nohup zrok share private \
+          --backend-mode tcpTunnel \
+          localhost:9000 \
+          > zrok.log 2>&1 &
 
 
           sleep 20
 
 
-          echo "========== LOCALHOST.RUN LOG =========="
-          cat localhostrun.log || true
+          echo "========== ZROK LOG =========="
+          cat zrok.log || true
+
 
 
       - name: Keep alive
         run: |
-          echo "Proxy is running..."
+          echo "Tunnel running..."
 
           while true
           do
