@@ -1,70 +1,7 @@
-name: zrok TCP Proxy Test
-
-on:
-  workflow_dispatch:
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-
-      - name: System info
-        run: |
-          uname -a
-          echo "Public IP:"
-          curl -4 api.ipify.org
-          echo
-
-
-      - name: Install 3proxy
-        run: |
-          sudo apt update
-          sudo apt install -y git build-essential curl wget
-
-          git clone https://github.com/z3APA3A/3proxy.git
-
-          cd 3proxy
-          make -f Makefile.Linux
-
-          sudo cp bin/3proxy /usr/local/bin/
-
-
-      - name: Create 3proxy config
-        run: |
-          echo "daemon" > 3proxy.cfg
-          echo "nscache 65536" >> 3proxy.cfg
-          echo "nserver 8.8.8.8" >> 3proxy.cfg
-          echo "nserver 1.1.1.1" >> 3proxy.cfg
-          echo "auth none" >> 3proxy.cfg
-          echo "proxy -p9000" >> 3proxy.cfg
-
-          echo "========== 3proxy.cfg =========="
-          cat 3proxy.cfg
-
-
-      - name: Start 3proxy
-        run: |
-          nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
-
-          sleep 5
-
-          echo "========== 3PROXY LOG =========="
-          cat 3proxy.log || true
-
-          echo "========== PORTS =========="
-          ss -lntp | grep 9000 || true
-
-          echo "========== LOCAL TEST =========="
-          curl -x http://127.0.0.1:9000 http://example.com
-
-
       - name: Install zrok
         run: |
           sudo apt update
           sudo apt install -y jq
-
-          echo "Finding latest zrok release..."
 
           URL=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest \
           | jq -r '.assets[].browser_download_url' \
@@ -72,43 +9,24 @@ jobs:
           | grep amd64 \
           | head -n1)
 
-          echo "Download URL:"
+          echo "Downloading:"
           echo "$URL"
 
           wget "$URL" -O zrok.tar.gz
 
-          echo "Downloaded file:"
-          file zrok.tar.gz
+          echo "========== TAR CONTENT =========="
+          tar -tzf zrok.tar.gz
 
           tar -xzf zrok.tar.gz
 
-          sudo mv zrok /usr/local/bin/zrok
+          echo "========== AFTER EXTRACT =========="
+          find . -maxdepth 3 -type f
 
-          sudo chmod +x /usr/local/bin/zrok
+          ZROK=$(find . -type f -name "zrok" | head -n1)
+
+          echo "Binary found:"
+          echo "$ZROK"
+
+          sudo install "$ZROK" /usr/local/bin/zrok
 
           zrok version
-
-
-      - name: Enable zrok
-        run: |
-          zrok enable "V0OUklFRSSiy"
-
-
-      - name: Start zrok tunnel
-        run: |
-          nohup zrok share public tcp://127.0.0.1:9000 --headless > zrok.log 2>&1 &
-
-          sleep 20
-
-          echo "========== ZROK LOG =========="
-          cat zrok.log
-
-
-      - name: Keep alive
-        run: |
-          echo "Proxy is running..."
-
-          while true
-          do
-            sleep 60
-          done
