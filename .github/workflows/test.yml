@@ -1,4 +1,4 @@
-name: Inbound Port Test
+name: Cloudflare Tunnel Test
 
 on:
   workflow_dispatch:
@@ -8,38 +8,59 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Show network info
+
+      - name: Install 3proxy
         run: |
-          echo "Hostname:"
-          hostname
+          sudo apt update
+          sudo apt install -y git build-essential wget
 
-          echo "Internal IP:"
-          hostname -I
+          git clone https://github.com/z3APA3A/3proxy.git
+          cd 3proxy
+          make -f Makefile.Linux
 
-          echo "Public IP:"
-          curl https://checkip.amazonaws.com
+          sudo cp bin/3proxy /usr/local/bin/
 
-          echo "Listening ports:"
-          sudo ss -tlnp
-
-      - name: Start HTTP server
+      - name: Configure 3proxy
         run: |
-          mkdir test-page
-          echo "HELLO FROM GITHUB ACTIONS RUNNER" > test-page/index.html
+          cat > 3proxy.cfg <<EOF
+          daemon
+          nscache 65536
+          nserver 8.8.8.8
+          nserver 1.1.1.1
+          auth none
+          proxy -p9000
+          EOF
 
-          cd test-page
-
-          nohup python3 -m http.server 9000 > server.log 2>&1 &
+          3proxy 3proxy.cfg
 
           sleep 5
 
-          echo "Local test:"
-          curl http://127.0.0.1:9000
+          echo "Testing local proxy..."
 
-          echo "Ports after server:"
-          sudo ss -tlnp
+          curl -x http://127.0.0.1:9000 https://www.google.com -I -v
+
+
+      - name: Install cloudflared
+        run: |
+          wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+
+          sudo dpkg -i cloudflared-linux-amd64.deb
+
+
+      - name: Start Cloudflare TCP Tunnel
+        run: |
+          nohup cloudflared tunnel \
+          --url tcp://localhost:9000 \
+          > cloudflared.log 2>&1 &
+
+
+          sleep 15
+
+          echo "========== CLOUDFLARE LOG =========="
+          cat cloudflared.log
+
 
       - name: Keep alive
         run: |
-          echo "Runner alive"
+          echo "Running..."
           sleep 3600
