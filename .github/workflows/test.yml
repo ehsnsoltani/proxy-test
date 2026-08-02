@@ -30,25 +30,31 @@ jobs:
           sudo cp bin/3proxy /usr/local/bin/
 
 
+      - name: Create 3proxy config
+        run: |
+          echo "daemon" > 3proxy.cfg
+          echo "nscache 65536" >> 3proxy.cfg
+          echo "nserver 8.8.8.8" >> 3proxy.cfg
+          echo "nserver 1.1.1.1" >> 3proxy.cfg
+          echo "auth none" >> 3proxy.cfg
+          echo "proxy -p9000" >> 3proxy.cfg
+
+          cat 3proxy.cfg
+
+
       - name: Start 3proxy
         run: |
-          cat > 3proxy.cfg <<'EOF'
-daemon
-nscache 65536
-nserver 8.8.8.8
-nserver 1.1.1.1
-auth none
-proxy -p9000
-EOF
-
           nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
 
           sleep 5
 
-          echo "3proxy status:"
+          echo "========== 3PROXY LOG =========="
+          cat 3proxy.log || true
+
+          echo "========== PORTS =========="
           ss -lntp | grep 9000 || true
 
-          echo "Local test:"
+          echo "========== LOCAL TEST =========="
           curl -x http://127.0.0.1:9000 http://example.com
 
 
@@ -60,7 +66,7 @@ EOF
 
           sudo mv zrok /usr/local/bin/zrok
 
-          chmod +x /usr/local/bin/zrok
+          sudo chmod +x /usr/local/bin/zrok
 
           zrok version
 
@@ -72,9 +78,7 @@ EOF
 
       - name: Start zrok tunnel
         run: |
-          nohup zrok share public tcp://127.0.0.1:9000 \
-          --headless \
-          > zrok.log 2>&1 &
+          nohup zrok share public tcp://127.0.0.1:9000 --headless > zrok.log 2>&1 &
 
           sleep 20
 
@@ -84,7 +88,8 @@ EOF
 
       - name: Keep alive
         run: |
-          echo "Running..."
+          echo "Proxy is running..."
+
           while true
           do
             sleep 60
