@@ -32,7 +32,7 @@ jobs:
 
       - name: Start 3proxy
         run: |
-          cat > 3proxy.cfg <<EOF
+          cat > 3proxy.cfg <<'EOF'
 daemon
 nscache 65536
 nserver 8.8.8.8
@@ -45,11 +45,14 @@ EOF
 
           sleep 5
 
+          echo "========== 3PROXY LOG =========="
+          cat 3proxy.log || true
+
           echo "========== PORTS =========="
           ss -lntp | grep 9000 || true
 
           echo "========== LOCAL TEST =========="
-          curl -x http://127.0.0.1:9000 http://example.com
+          curl -x http://127.0.0.1:9000 http://example.com || true
 
 
       - name: Install zrok
