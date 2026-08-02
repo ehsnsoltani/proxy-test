@@ -1,10 +1,11 @@
-name: zrok TCP Tunnel Proxy Test
+name: Pinggy TCP Proxy Test
 
 on:
   workflow_dispatch:
 
 jobs:
   test:
+
     runs-on: ubuntu-latest
 
     steps:
@@ -20,7 +21,7 @@ jobs:
       - name: Install 3proxy
         run: |
           sudo apt update
-          sudo apt install -y git build-essential curl wget jq
+          sudo apt install -y git build-essential curl openssh-client
 
           git clone https://github.com/z3APA3A/3proxy.git
 
@@ -29,79 +30,107 @@ jobs:
 
           sudo cp bin/3proxy /usr/local/bin/3proxy
 
+          3proxy -v || true
 
-      - name: Start 3proxy
+
+      - name: Configure and start 3proxy
         run: |
-          printf '%s\n' \
-          "daemon" \
-          "nscache 65536" \
-          "nserver 8.8.8.8" \
-          "nserver 1.1.1.1" \
-          "auth none" \
-          "proxy -p9000" \
-          > 3proxy.cfg
+
+          cat > 3proxy.cfg <<'EOF'
+daemon
+nscache 65536
+nserver 8.8.8.8
+nserver 1.1.1.1
+timeouts 1 5 30 60 1800 1800 60 60 10 15
+auth none
+proxy -p9000
+EOF
+
 
           nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
 
+
           sleep 5
 
-          echo "========== 3PROXY =========="
+
+          echo "========== 3PROXY LOG =========="
           cat 3proxy.log || true
 
+
+          echo "========== PORT CHECK =========="
           ss -lntp | grep 9000 || true
 
 
-      - name: Install zrok
+          echo "========== LOCAL PROXY TEST =========="
+          curl \
+          -x http://127.0.0.1:9000 \
+          http://example.com \
+          -v || true
+
+
+
+      - name: Start Pinggy TCP tunnel with retry
         run: |
-          sudo apt update
-          sudo apt install -y jq curl wget
 
-          URL=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest \
-          | jq -r '.assets[].browser_download_url' \
-          | grep linux \
-          | grep amd64 \
-          | head -n1)
-
-          wget "$URL" -O zrok.tar.gz
-
-          tar -xzf zrok.tar.gz
-
-          sudo install ./zrok2 /usr/local/bin/zrok
-
-          sudo chmod +x /usr/local/bin/zrok
-
-          zrok version || true
+          echo "Starting Pinggy tunnel"
 
 
-      - name: Configure zrok environment
-        run: |
-          mkdir -p ~/.zrok
+          for i in 1 2 3 4 5
+          do
 
-          zrok config set apiEndpoint https://api-v2.zrok.io
-
-          echo "V0OUklFRSSiy" > ~/.zrok/enable.token
-
-          echo "zrok configured"
+            echo "========== ATTEMPT $i =========="
 
 
-      - name: Start zrok TCP tunnel
-        run: |
-          echo "Starting zrok..."
+            rm -f pinggy.log
 
-          nohup zrok share private \
-          --backend-mode tcpTunnel \
-          localhost:9000 \
-          > zrok.log 2>&1 &
 
-          sleep 20
+            nohup ssh \
+              -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=30 \
+              -o ServerAliveCountMax=3 \
+              -o ExitOnForwardFailure=yes \
+              -p 443 \
+              -R0:localhost:9000 \
+              tcp@a.pinggy.io \
+              > pinggy.log 2>&1 &
 
-          echo "========== ZROK LOG =========="
-          cat zrok.log || true
+
+            PID=$!
+
+
+            sleep 20
+
+
+            echo "========== PINGGY LOG =========="
+            cat pinggy.log || true
+
+
+
+            if grep -Eqi "allocated port|forwarding|tcp" pinggy.log
+            then
+
+              echo "Pinggy tunnel established"
+              break
+
+            fi
+
+
+
+            echo "Pinggy failed"
+
+            kill $PID || true
+
+            sleep 5
+
+
+          done
+
 
 
       - name: Keep alive
         run: |
-          echo "Running..."
+
+          echo "Proxy is running..."
 
           while true
           do
