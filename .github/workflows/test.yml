@@ -1,7 +1,23 @@
+name: zrok test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: System info
+        run: |
+          uname -a
+          echo "hello"
+
       - name: Install zrok
         run: |
           sudo apt update
-          sudo apt install -y jq
+          sudo apt install -y jq curl wget
 
           URL=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest \
           | jq -r '.assets[].browser_download_url' \
