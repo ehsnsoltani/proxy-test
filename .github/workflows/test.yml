@@ -1,75 +1,80 @@
-name: Proxy Test
+name: Proxy Test ngrok
 
 on:
   workflow_dispatch:
 
 jobs:
-  test:
+  proxy:
     runs-on: ubuntu-latest
 
     steps:
 
-      - name: Check system
+      - name: System info
         run: |
           uname -a
-          curl api.ipify.org
+          curl https://checkip.amazonaws.com
 
 
       - name: Install 3proxy
         run: |
           sudo apt update
-          sudo apt install -y git build-essential wget
+          sudo apt install -y git build-essential wget curl
 
           git clone https://github.com/z3APA3A/3proxy.git
+
           cd 3proxy
           make -f Makefile.Linux
 
           sudo cp bin/3proxy /usr/local/bin/
 
 
-      - name: Start proxy
+      - name: Configure 3proxy
         run: |
           cat > 3proxy.cfg <<EOF
           daemon
           nscache 65536
           nserver 8.8.8.8
           nserver 1.1.1.1
-
           auth none
-
-          timeouts 1 5 30 60 180 1800 15 60
-
           proxy -p9000
           EOF
 
+
+      - name: Start 3proxy
+        run: |
           3proxy 3proxy.cfg &
 
           sleep 5
 
-          echo "Testing local HTTP proxy..."
+          echo "Testing local proxy..."
+
           curl -x http://127.0.0.1:9000 http://example.com -v
 
 
-      - name: Test HTTPS from runner
+      - name: Install ngrok
         run: |
-          echo "Testing Google HTTPS..."
-          curl -x http://127.0.0.1:9000 https://www.google.com -v
+          wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
 
-          echo "Testing Cloudflare HTTPS..."
-          curl -x http://127.0.0.1:9000 https://www.cloudflare.com -v
+          tar -xzf ngrok-v3-stable-linux-amd64.tgz
+
+          sudo mv ngrok /usr/local/bin/
+
+          ngrok version
 
 
-      - name: Install bore
+      - name: Start ngrok TCP
         run: |
-          wget -q https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz
 
-          tar -xzf bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz
+          ngrok config add-authtoken 30V6Lkk7V9p7SMvimOiJBDOeKlX_75pMBmvy8oBXaCBduzUdp
 
-          chmod +x bore
+          nohup ngrok tcp 9000 > ngrok.log 2>&1 &
 
-          sudo mv bore /usr/local/bin/
+          sleep 10
+
+          cat ngrok.log
 
 
-      - name: Start bore tunnel
+      - name: Keep alive
         run: |
-          bore local 9000 --to bore.pub
+          echo "Proxy running..."
+          sleep 3600
