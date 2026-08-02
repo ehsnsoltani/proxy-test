@@ -1,80 +1,45 @@
-name: Proxy Test ngrok
+name: Inbound Port Test
 
 on:
   workflow_dispatch:
 
 jobs:
-  proxy:
+  test:
     runs-on: ubuntu-latest
 
     steps:
-
-      - name: System info
+      - name: Show network info
         run: |
-          uname -a
+          echo "Hostname:"
+          hostname
+
+          echo "Internal IP:"
+          hostname -I
+
+          echo "Public IP:"
           curl https://checkip.amazonaws.com
 
+          echo "Listening ports:"
+          sudo ss -tlnp
 
-      - name: Install 3proxy
+      - name: Start HTTP server
         run: |
-          sudo apt update
-          sudo apt install -y git build-essential wget curl
+          mkdir test-page
+          echo "HELLO FROM GITHUB ACTIONS RUNNER" > test-page/index.html
 
-          git clone https://github.com/z3APA3A/3proxy.git
+          cd test-page
 
-          cd 3proxy
-          make -f Makefile.Linux
-
-          sudo cp bin/3proxy /usr/local/bin/
-
-
-      - name: Configure 3proxy
-        run: |
-          cat > 3proxy.cfg <<EOF
-          daemon
-          nscache 65536
-          nserver 8.8.8.8
-          nserver 1.1.1.1
-          auth none
-          proxy -p9000
-          EOF
-
-
-      - name: Start 3proxy
-        run: |
-          3proxy 3proxy.cfg &
+          nohup python3 -m http.server 9000 > server.log 2>&1 &
 
           sleep 5
 
-          echo "Testing local proxy..."
+          echo "Local test:"
+          curl http://127.0.0.1:9000
 
-          curl -x http://127.0.0.1:9000 http://example.com -v
-
-
-      - name: Install ngrok
-        run: |
-          wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
-
-          tar -xzf ngrok-v3-stable-linux-amd64.tgz
-
-          sudo mv ngrok /usr/local/bin/
-
-          ngrok version
-
-
-      - name: Start ngrok TCP
-        run: |
-
-          ngrok config add-authtoken 30V6Lkk7V9p7SMvimOiJBDOeKlX_75pMBmvy8oBXaCBduzUdp
-
-          nohup ngrok tcp 9000 > ngrok.log 2>&1 &
-
-          sleep 10
-
-          cat ngrok.log
-
+          echo "Ports after server:"
+          sudo ss -tlnp
 
       - name: Keep alive
         run: |
-          echo "Proxy running..."
+          echo "Runner alive"
           sleep 3600
