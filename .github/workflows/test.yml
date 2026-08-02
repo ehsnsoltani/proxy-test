@@ -32,14 +32,14 @@ jobs:
 
       - name: Start 3proxy
         run: |
-          cat > 3proxy.cfg <<'EOF'
-daemon
-nscache 65536
-nserver 8.8.8.8
-nserver 1.1.1.1
-auth none
-proxy -p9000
-EOF
+          printf '%s\n' \
+          'daemon' \
+          'nscache 65536' \
+          'nserver 8.8.8.8' \
+          'nserver 1.1.1.1' \
+          'auth none' \
+          'proxy -p9000' \
+          > 3proxy.cfg
 
           nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
 
@@ -51,7 +51,7 @@ EOF
           echo "========== PORTS =========="
           ss -lntp | grep 9000 || true
 
-          echo "========== LOCAL PROXY TEST =========="
+          echo "========== LOCAL TEST =========="
           curl -x http://127.0.0.1:9000 http://example.com -v || true
 
 
@@ -60,12 +60,12 @@ EOF
           echo "Starting localhost.run..."
 
           nohup ssh \
-            -o StrictHostKeyChecking=no \
-            -o ServerAliveInterval=60 \
-            -o ExitOnForwardFailure=yes \
-            -R 0:localhost:9000 \
-            localhost.run \
-            > localhostrun.log 2>&1 &
+          -o StrictHostKeyChecking=no \
+          -o ServerAliveInterval=60 \
+          -o ExitOnForwardFailure=yes \
+          -R 0:localhost:9000 \
+          localhost.run \
+          > localhostrun.log 2>&1 &
 
           sleep 20
 
