@@ -1,4 +1,4 @@
-name: zrok TCP Proxy Test
+name: localhost-run TCP Proxy Test
 
 on:
   workflow_dispatch:
@@ -20,7 +20,7 @@ jobs:
       - name: Install 3proxy
         run: |
           sudo apt update
-          sudo apt install -y git build-essential curl wget jq
+          sudo apt install -y git build-essential curl wget openssh-client
 
           git clone https://github.com/z3APA3A/3proxy.git
 
@@ -32,63 +32,45 @@ jobs:
 
       - name: Start 3proxy
         run: |
-          echo "daemon" > 3proxy.cfg
-          echo "nscache 65536" >> 3proxy.cfg
-          echo "nserver 8.8.8.8" >> 3proxy.cfg
-          echo "nserver 1.1.1.1" >> 3proxy.cfg
-          echo "auth none" >> 3proxy.cfg
-          echo "proxy -p9000" >> 3proxy.cfg
-
-          cat 3proxy.cfg
+          cat > 3proxy.cfg <<'EOF'
+daemon
+nscache 65536
+nserver 8.8.8.8
+nserver 1.1.1.1
+auth none
+proxy -p9000
+EOF
 
           nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
 
           sleep 5
 
+          echo "========== 3PROXY LOG =========="
+          cat 3proxy.log || true
+
           echo "========== PORTS =========="
           ss -lntp | grep 9000 || true
 
-          echo "========== LOCAL TEST =========="
-          curl -x http://127.0.0.1:9000 http://example.com || true
+          echo "========== LOCAL PROXY TEST =========="
+          curl -x http://127.0.0.1:9000 http://example.com -v || true
 
 
-      - name: Install zrok
+      - name: Start localhost.run TCP tunnel
         run: |
-          URL=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest \
-          | jq -r '.assets[].browser_download_url' \
-          | grep linux \
-          | grep amd64 \
-          | head -n1)
+          echo "Starting localhost.run..."
 
-          echo "Downloading:"
-          echo "$URL"
-
-          wget "$URL" -O zrok.tar.gz
-
-          tar -xzf zrok.tar.gz
-
-          ls -la
-
-          sudo install zrok2 /usr/local/bin/zrok
-
-          sudo chmod +x /usr/local/bin/zrok
-
-          zrok version
-
-
-      - name: Enable zrok
-        run: |
-          zrok enable "V0OUklFRSSiy"
-
-
-      - name: Start zrok tunnel
-        run: |
-          nohup zrok share public tcp://127.0.0.1:9000 --headless > zrok.log 2>&1 &
+          nohup ssh \
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=60 \
+            -o ExitOnForwardFailure=yes \
+            -R 0:localhost:9000 \
+            localhost.run \
+            > localhostrun.log 2>&1 &
 
           sleep 20
 
-          echo "========== ZROK LOG =========="
-          cat zrok.log || true
+          echo "========== LOCALHOST.RUN LOG =========="
+          cat localhostrun.log || true
 
 
       - name: Keep alive
