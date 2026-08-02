@@ -16,7 +16,7 @@ jobs:
       - name: Install 3proxy
         run: |
           sudo apt update
-          sudo apt install -y git build-essential
+          sudo apt install -y git build-essential wget
 
           git clone https://github.com/z3APA3A/3proxy.git
           cd 3proxy
@@ -31,24 +31,30 @@ jobs:
           nscache 65536
           nserver 8.8.8.8
           nserver 1.1.1.1
+
           auth none
+
+          timeouts 1 5 30 60 180 1800 15 60
+
           proxy -p9000
           EOF
 
           3proxy 3proxy.cfg &
+
           sleep 5
 
           curl -x http://127.0.0.1:9000 http://example.com -v
 
-      - name: Start Pinggy tunnel
+      - name: Install bore
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -o ServerAliveInterval=30 \
-              -p 443 \
-              -R0:localhost:9000 \
-              tcp@a.pinggy.io
+          wget -q https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz
 
-      - name: Keep alive
+          tar -xzf bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz
+
+          chmod +x bore
+
+          sudo mv bore /usr/local/bin/
+
+      - name: Start bore tunnel
         run: |
-          echo "Proxy test running"
-          sleep 3600
+          bore local 9000 --to bore.pub
