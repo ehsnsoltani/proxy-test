@@ -5,7 +5,6 @@ on:
 
 jobs:
   test:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -36,15 +35,15 @@ jobs:
       - name: Configure and start 3proxy
         run: |
 
-          cat > 3proxy.cfg <<'EOF'
-daemon
-nscache 65536
-nserver 8.8.8.8
-nserver 1.1.1.1
-timeouts 1 5 30 60 1800 1800 60 60 10 15
-auth none
-proxy -p9000
-EOF
+          printf '%s\n' \
+          "daemon" \
+          "nscache 65536" \
+          "nserver 8.8.8.8" \
+          "nserver 1.1.1.1" \
+          "timeouts 1 5 30 60 1800 1800 60 60 10 15" \
+          "auth none" \
+          "proxy -p9000" \
+          > 3proxy.cfg
 
 
           nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
@@ -61,38 +60,32 @@ EOF
           ss -lntp | grep 9000 || true
 
 
-          echo "========== LOCAL PROXY TEST =========="
-          curl \
-          -x http://127.0.0.1:9000 \
-          http://example.com \
-          -v || true
+          echo "========== LOCAL TEST =========="
+          curl -x http://127.0.0.1:9000 http://example.com -v || true
 
 
 
-      - name: Start Pinggy TCP tunnel with retry
+      - name: Start Pinggy tunnel
         run: |
 
-          echo "Starting Pinggy tunnel"
+          echo "Starting Pinggy"
 
 
           for i in 1 2 3 4 5
           do
 
-            echo "========== ATTEMPT $i =========="
-
-
-            rm -f pinggy.log
+            echo "Attempt $i"
 
 
             nohup ssh \
-              -o StrictHostKeyChecking=no \
-              -o ServerAliveInterval=30 \
-              -o ServerAliveCountMax=3 \
-              -o ExitOnForwardFailure=yes \
-              -p 443 \
-              -R0:localhost:9000 \
-              tcp@a.pinggy.io \
-              > pinggy.log 2>&1 &
+            -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=3 \
+            -o ExitOnForwardFailure=yes \
+            -p 443 \
+            -R0:localhost:9000 \
+            tcp@a.pinggy.io \
+            > pinggy.log 2>&1 &
 
 
             PID=$!
@@ -105,23 +98,16 @@ EOF
             cat pinggy.log || true
 
 
-
-            if grep -Eqi "allocated port|forwarding|tcp" pinggy.log
+            if grep -Eqi "allocated port|forwarding" pinggy.log
             then
-
-              echo "Pinggy tunnel established"
+              echo "SUCCESS"
               break
-
             fi
 
-
-
-            echo "Pinggy failed"
 
             kill $PID || true
 
             sleep 5
-
 
           done
 
