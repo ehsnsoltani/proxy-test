@@ -39,6 +39,7 @@ jobs:
           echo "auth none" >> 3proxy.cfg
           echo "proxy -p9000" >> 3proxy.cfg
 
+          echo "========== 3proxy.cfg =========="
           cat 3proxy.cfg
 
 
@@ -60,7 +61,24 @@ jobs:
 
       - name: Install zrok
         run: |
-          wget -q https://github.com/openziti/zrok/releases/latest/download/zrok-linux-amd64.tar.gz -O zrok.tar.gz
+          sudo apt update
+          sudo apt install -y jq
+
+          echo "Finding latest zrok release..."
+
+          URL=$(curl -s https://api.github.com/repos/openziti/zrok/releases/latest \
+          | jq -r '.assets[].browser_download_url' \
+          | grep linux \
+          | grep amd64 \
+          | head -n1)
+
+          echo "Download URL:"
+          echo "$URL"
+
+          wget "$URL" -O zrok.tar.gz
+
+          echo "Downloaded file:"
+          file zrok.tar.gz
 
           tar -xzf zrok.tar.gz
 
