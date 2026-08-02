@@ -40,6 +40,14 @@ jobs:
 
           curl -x http://127.0.0.1:9000 http://example.com -v
 
+      - name: Start Pinggy tunnel
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              -o ServerAliveInterval=30 \
+              -p 443 \
+              -R0:localhost:9000 \
+              tcp@a.pinggy.io
+
       - name: Keep alive
         run: |
           echo "Proxy test running"
