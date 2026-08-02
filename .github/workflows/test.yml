@@ -8,10 +8,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Check system
         run: |
           uname -a
           curl api.ipify.org
+
 
       - name: Install 3proxy
         run: |
@@ -23,6 +25,7 @@ jobs:
           make -f Makefile.Linux
 
           sudo cp bin/3proxy /usr/local/bin/
+
 
       - name: Start proxy
         run: |
@@ -43,7 +46,18 @@ jobs:
 
           sleep 5
 
+          echo "Testing local HTTP proxy..."
           curl -x http://127.0.0.1:9000 http://example.com -v
+
+
+      - name: Test HTTPS from runner
+        run: |
+          echo "Testing Google HTTPS..."
+          curl -x http://127.0.0.1:9000 https://www.google.com -v
+
+          echo "Testing Cloudflare HTTPS..."
+          curl -x http://127.0.0.1:9000 https://www.cloudflare.com -v
+
 
       - name: Install bore
         run: |
@@ -54,6 +68,7 @@ jobs:
           chmod +x bore
 
           sudo mv bore /usr/local/bin/
+
 
       - name: Start bore tunnel
         run: |
