@@ -16,6 +16,7 @@ jobs:
           curl -4 api.ipify.org
           echo
 
+
       - name: Install 3proxy
         run: |
           sudo apt update
@@ -28,13 +29,10 @@ jobs:
 
           sudo cp bin/3proxy /usr/local/bin/
 
-          3proxy --version || true
 
-
-      - name: Start HTTP CONNECT proxy
+      - name: Start 3proxy
         run: |
-
-          cat > 3proxy.cfg <<EOF
+          cat > 3proxy.cfg <<'EOF'
 daemon
 nscache 65536
 nserver 8.8.8.8
@@ -43,23 +41,24 @@ auth none
 proxy -p9000
 EOF
 
-          3proxy 3proxy.cfg
+          nohup 3proxy 3proxy.cfg > 3proxy.log 2>&1 &
 
           sleep 5
 
-          echo "Testing local proxy..."
-          curl -x http://127.0.0.1:9000 http://example.com -v
+          echo "3proxy status:"
+          ss -lntp | grep 9000 || true
+
+          echo "Local test:"
+          curl -x http://127.0.0.1:9000 http://example.com
 
 
       - name: Install zrok
         run: |
-
-          wget -q https://github.com/openziti/zrok/releases/latest/download/zrok-linux-amd64.tar.gz \
-          -O zrok.tar.gz
+          wget -q https://github.com/openziti/zrok/releases/latest/download/zrok-linux-amd64.tar.gz -O zrok.tar.gz
 
           tar -xzf zrok.tar.gz
 
-          sudo mv zrok /usr/local/bin/
+          sudo mv zrok /usr/local/bin/zrok
 
           chmod +x /usr/local/bin/zrok
 
@@ -68,14 +67,12 @@ EOF
 
       - name: Enable zrok
         run: |
+          zrok enable "V0OUklFRSSiy"
 
-          zrok enable V0OUklFRSSiy
 
-
-      - name: Start zrok TCP tunnel
+      - name: Start zrok tunnel
         run: |
-
-          zrok share public tcp://127.0.0.1:9000 \
+          nohup zrok share public tcp://127.0.0.1:9000 \
           --headless \
           > zrok.log 2>&1 &
 
@@ -87,9 +84,7 @@ EOF
 
       - name: Keep alive
         run: |
-
-          echo "zrok tunnel running"
-
+          echo "Running..."
           while true
           do
             sleep 60
