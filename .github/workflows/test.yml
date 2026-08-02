@@ -1,3 +1,18 @@
+name: Proxy Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check system
+        run: |
+          uname -a
+          curl api.ipify.org
+
       - name: Install 3proxy
         run: |
           sudo apt update
@@ -8,3 +23,24 @@
           make -f Makefile.Linux
 
           sudo cp bin/3proxy /usr/local/bin/
+
+      - name: Start proxy
+        run: |
+          cat > 3proxy.cfg <<EOF
+          daemon
+          nscache 65536
+          nserver 8.8.8.8
+          nserver 1.1.1.1
+          auth none
+          proxy -p9000
+          EOF
+
+          3proxy 3proxy.cfg &
+          sleep 5
+
+          curl -x http://127.0.0.1:9000 http://example.com -v
+
+      - name: Keep alive
+        run: |
+          echo "Proxy test running"
+          sleep 3600
