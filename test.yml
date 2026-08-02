@@ -1,0 +1,20 @@
+name: Proxy Test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check system
+        run: |
+          uname -a
+          ip addr
+          curl api.ipify.org
+          
+      - name: Keep alive test
+        run: |
+          echo "Runner is alive"
+          sleep 3600
