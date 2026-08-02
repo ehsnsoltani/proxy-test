@@ -45,14 +45,10 @@ jobs:
 
           sleep 5
 
-          echo "========== 3PROXY LOG =========="
+          echo "========== 3PROXY =========="
           cat 3proxy.log || true
 
-          echo "========== PORT CHECK =========="
           ss -lntp | grep 9000 || true
-
-          echo "========== LOCAL TEST =========="
-          curl -x http://127.0.0.1:9000 http://example.com -v || true
 
 
       - name: Install zrok
@@ -66,18 +62,9 @@ jobs:
           | grep amd64 \
           | head -n1)
 
-          echo "Downloading:"
-          echo "$URL"
-
           wget "$URL" -O zrok.tar.gz
 
-          echo "========== TAR =========="
-          tar -tzf zrok.tar.gz
-
           tar -xzf zrok.tar.gz
-
-          echo "========== FILES =========="
-          ls -la
 
           sudo install ./zrok2 /usr/local/bin/zrok
 
@@ -86,16 +73,20 @@ jobs:
           zrok version || true
 
 
-      - name: Enable zrok
-        env:
-          ZROK_TOKEN: V0OUklFRSSiy
+      - name: Configure zrok environment
         run: |
-          echo "$ZROK_TOKEN" | zrok enable -
+          mkdir -p ~/.zrok
+
+          zrok config set apiEndpoint https://api-v2.zrok.io
+
+          echo "V0OUklFRSSiy" > ~/.zrok/enable.token
+
+          echo "zrok configured"
 
 
       - name: Start zrok TCP tunnel
         run: |
-          echo "Starting zrok TCP tunnel..."
+          echo "Starting zrok..."
 
           nohup zrok share private \
           --backend-mode tcpTunnel \
@@ -110,7 +101,7 @@ jobs:
 
       - name: Keep alive
         run: |
-          echo "Proxy tunnel is running..."
+          echo "Running..."
 
           while true
           do
